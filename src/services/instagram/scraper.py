@@ -14,20 +14,27 @@ class InstagramScraper:
 
     async def get_posts_by_hashtag(self, hashtag: str, limit: int = 5) -> list[str]:
         """
-        Acessa a hashtag, simula rolagens e extrai as URLs de posts recentes e Reels.
+        Acessa a hashtag, aguarda a renderização ativa dos posts e extrai as URLs.
         """
         if not self.page:
             return []
 
         url = f"https://www.instagram.com/explore/tags/{hashtag}/"
-        logger.info(f"Buscando publicações da hashtag #{hashtag}...")
+        logger.info(f"Navegando para a hashtag: #{hashtag}")
 
         try:
             await self.page.goto(url, wait_until="load")
-            await asyncio.sleep(random.uniform(2.5, 4.0))
+            
+            # ESPERA ATIVA: Aguarda até 10 segundos para o Instagram carregar e renderizar os posts na grade
+            logger.info("Aguardando carregamento dinâmico dos posts na grade...")
+            try:
+                await self.page.wait_for_selector('a[href*="/p/"], a[href*="/reel/"]', timeout=10000)
+            except Exception:
+                logger.warning(f"⚠️ Nenhuma publicação visível carregou para #{hashtag} no tempo limite de 10s.")
+                return []
 
-            # Simula um scroll suave para baixo para forçar o carregamento dinâmico do Instagram
-            logger.info("Realizando rolagem de página para carregar posts...")
+            # Simula um scroll suave para baixo para carregar mais posts dinamicamente
+            logger.info("Realizando rolagem de página para carregar posts adicionais...")
             await self.page.evaluate("window.scrollTo(0, 600)")
             await asyncio.sleep(random.uniform(1.5, 3.0))
 
@@ -47,7 +54,7 @@ class InstagramScraper:
             # Limita a quantidade solicitada
             unique_links = filtered_links[:limit]
             
-            logger.info(f"Encontrados {len(unique_links)} posts/reels para a hashtag #{hashtag}.")
+            logger.info(f"Encontrados {len(unique_links)} posts/reels para #{hashtag}.")
             return unique_links
 
         except Exception as e:
