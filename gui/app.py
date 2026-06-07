@@ -1,3 +1,9 @@
+import sys
+from pathlib import Path
+
+# Adiciona a raiz do projeto (um nível acima da pasta gui/) ao PYTHONPATH em tempo de execução
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
 import streamlit as st
 import asyncio
 from src.core.bot import MarketingBot
@@ -33,15 +39,13 @@ if "logs" not in st.session_state:
 if "bot_running" not in st.session_state:
     st.session_state.bot_running = False
 
-# Painel de Credenciais e Acessos
+# Painel de Credenciais e Acessos (Removida a senha do Instagram por motivos de segurança)
 st.write("### 🔑 Credenciais e Acessos")
 col1, col2 = st.columns(2)
 with col1:
-    instagram_user = st.text_input("Usuário do Instagram", placeholder="seu_usuario", value="")
+    instagram_user = st.text_input("Usuário do Instagram", placeholder="seu_usuario (opcional para histórico de cookies)", value="")
 with col2:
-    instagram_pass = st.text_input("Senha do Instagram", type="password", placeholder="sua_senha", value="")
-
-gemini_key = st.text_input("Chave de API do Gemini", type="password", placeholder="Chave da API (ou deixe vazio se configurado no .env)", value="")
+    gemini_key = st.text_input("Chave de API do Gemini", type="password", placeholder="Chave da API (ou deixe vazio se configurado no .env)", value="")
 
 # Configurações do Produto
 st.write("### 📦 Informações do Produto")
@@ -81,14 +85,14 @@ with col_stop:
 
 # Tratamento da inicialização da automação
 if start_btn:
-    if not instagram_user or not instagram_pass or not product_link:
-        st.error("Por favor, preencha o Usuário, Senha do Instagram e o Link do Produto!")
+    if not product_link:
+        st.error("Por favor, preencha o Link do Produto!")
     else:
         st.session_state.bot_running = True
         st.session_state.logs = []  # Limpa o histórico de logs anteriores
         update_logs("🤖 Inicializando o Coment-AI...")
 
-        # Cria a instância do bot injetando a chave opcional
+        # Cria a instância do bot
         bot = MarketingBot(gemini_api_key=gemini_key)
         st.session_state.bot_instance = bot
 
@@ -96,10 +100,9 @@ if start_btn:
             # Divide as hashtags informadas removendo espaços extras
             tags = [tag.strip() for tag in niche_tags_input.split(",") if tag.strip()]
             
-            # Executa o loop assíncrono do bot no orquestrador
+            # Executa o loop assíncrono do bot no orquestrador (sem transmitir a senha)
             asyncio.run(bot.run(
                 instagram_user=instagram_user,
-                instagram_pass=instagram_pass,
                 product_link=product_link,
                 product_description=product_description,
                 niche_tags=tags,

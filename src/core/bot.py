@@ -23,7 +23,6 @@ class MarketingBot:
     async def run(
         self,
         instagram_user: str,
-        instagram_pass: str,
         product_link: str,
         product_description: str,
         niche_tags: list[str],
@@ -68,9 +67,9 @@ class MarketingBot:
             ig_scraper = InstagramScraper(page=page)
             ig_interactor = InstagramInteractor(page=page)
 
-            # 4. Login no Instagram
-            report("4. Efetuando login no Instagram...")
-            logged = await ig_interactor.login(instagram_user, instagram_pass)
+            # 4. Login no Instagram (Apenas aguarda o login manual do usuário)
+            report("4. Verificando/Aguardando login no Instagram...")
+            logged = await ig_interactor.login(instagram_user)
             if not logged:
                 report("❌ Falha no login do Instagram. Encerrando execução.", is_error=True)
                 await self.browser_manager.stop()
