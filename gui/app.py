@@ -28,96 +28,131 @@ st.markdown("""
 st.title("🤖 Coment-AI")
 st.subheader("Divulgação Inteligente no Instagram direcionada por IA")
 
-st.markdown("""
-Este robô analisa o site do seu produto digital, identifica dores de potenciais clientes no Instagram
-e realiza comentários automatizados e personalizados relacionando a dor do cliente ao seu produto.
-""")
-
-# Inicializa o estado dos logs e o estado de execução do bot na sessão do Streamlit
+# Inicializa o estado dos logs, do histórico de comentários e do estado de execução do bot
 if "logs" not in st.session_state:
     st.session_state.logs = []
+if "history" not in st.session_state:
+    st.session_state.history = []
 if "bot_running" not in st.session_state:
     st.session_state.bot_running = False
 
-# Painel de Credenciais e Acessos (Removida a senha do Instagram por motivos de segurança)
-st.write("### 🔑 Credenciais e Acessos")
-col1, col2 = st.columns(2)
-with col1:
-    instagram_user = st.text_input("Usuário do Instagram", placeholder="seu_usuario (opcional para histórico de cookies)", value="")
-with col2:
-    gemini_key = st.text_input("Chave de API do Gemini", type="password", placeholder="Chave da API (ou deixe vazio se configurado no .env)", value="")
+# Definição das Abas Visuais
+tab1, tab2 = st.tabs(["🚀 Automação e Logs", "📊 Histórico de Comentários"])
 
-# Configurações do Produto
-st.write("### 📦 Informações do Produto")
-product_link = st.text_input("Link do Produto (URL do Site)", placeholder="https://meuproduto.com.br")
-product_description = st.text_area(
-    "Proposta de Valor / Dor que resolve", 
-    placeholder="Ex: Planilha de gestão financeira para motoristas de aplicativo que ajuda a calcular o lucro real e economizar combustível."
-)
+with tab1:
+    st.markdown("""
+    Este robô analisa o site do seu produto digital, identifica dores de potenciais clientes no Instagram
+    e realiza comentários automatizados e personalizados relacionando a dor do cliente ao seu produto.
+    """)
 
-# Configurações de Busca e Nicho
-st.write("### 🎯 Nicho e Busca")
-niche_tags_input = st.text_input("Hashtags Alvo (separadas por vírgula)", placeholder="motoristasdeaplicativo, uberbr, 99pop")
+    # Painel de Credenciais e Acessos
+    st.write("### 🔑 Credenciais e Acessos")
+    col1, col2 = st.columns(2)
+    with col1:
+        instagram_user = st.text_input("Usuário do Instagram", placeholder="seu_usuario (opcional para histórico de cookies)", value="")
+    with col2:
+        gemini_key = st.text_input("Chave de API do Gemini", type="password", placeholder="Chave da API (ou deixe vazio se configurado no .env)", value="")
 
-st.write("---")
+    # Configurações do Produto
+    st.write("### 📦 Informações do Produto")
+    product_link = st.text_input("Link do Produto (URL do Site)", placeholder="https://meuproduto.com.br")
+    product_description = st.text_area(
+        "Proposta de Valor / Dor que resolve", 
+        placeholder="Ex: Planilha de gestão financeira para motoristas de aplicativo que ajuda a calcular o lucro real e economizar combustível."
+    )
 
-# Contêiner dinâmico reservado para os logs de execução na tela
-log_placeholder = st.empty()
+    # Configurações de Busca e Nicho
+    st.write("### 🎯 Nicho e Limites")
+    niche_tags_input = st.text_input("Hashtags Alvo (separadas por vírgula)", placeholder="motoristasdeaplicativo, uberbr, 99pop")
+    
+    col_lim1, col_lim2 = st.columns(2)
+    with col_lim1:
+        limit_posts_tag = st.number_input("Limite de posts analisados por Hashtag", min_value=1, max_value=20, value=5)
+    with col_lim2:
+        limit_total_comments = st.number_input("Limite de comentários por execução (segurança)", min_value=1, max_value=50, value=3)
 
-# Se existirem logs de execuções anteriores, exibe-os
-if st.session_state.logs:
-    log_placeholder.code("\n".join(st.session_state.logs), language="bash")
+    st.write("---")
 
-# Função de callback que o orquestrador do bot chamará para imprimir logs na tela em tempo real
-def update_logs(message: str):
-    st.session_state.logs.append(message)
-    # Atualiza dinamicamente o bloco de código de log na interface gráfica
-    log_placeholder.code("\n".join(st.session_state.logs), language="bash")
+    # Contêiner dinâmico reservado para os logs de execução na tela
+    log_placeholder = st.empty()
 
-# Botões de Controle
-col_start, col_stop = st.columns(2)
+    # Se existirem logs de execuções anteriores, exibe-os
+    if st.session_state.logs:
+        log_placeholder.code("\n".join(st.session_state.logs), language="bash")
 
-with col_start:
-    start_btn = st.button("🚀 Iniciar Automação", use_container_width=True, disabled=st.session_state.bot_running)
+    # Função de callback de logs
+    def update_logs(message: str):
+        st.session_state.logs.append(message)
+        log_placeholder.code("\n".join(st.session_state.logs), language="bash")
 
-with col_stop:
-    stop_btn = st.button("⏹️ Parar Automação", use_container_width=True, disabled=not st.session_state.bot_running)
+    # Função de callback do histórico de comentários
+    def add_comment_to_history(comment_data: dict):
+        st.session_state.history.append(comment_data)
 
-# Tratamento da inicialização da automação
-if start_btn:
-    if not product_link:
-        st.error("Por favor, preencha o Link do Produto!")
+    # Botões de Controle
+    col_start, col_stop = st.columns(2)
+
+    with col_start:
+        start_btn = st.button("🚀 Iniciar Automação", use_container_width=True, disabled=st.session_state.bot_running)
+
+    with col_stop:
+        stop_btn = st.button("⏹️ Parar Automação", use_container_width=True, disabled=not st.session_state.bot_running)
+
+    # Tratamento da inicialização da automação
+    if start_btn:
+        if not product_link:
+            st.error("Por favor, preencha o Link do Produto!")
+        else:
+            st.session_state.bot_running = True
+            st.session_state.logs = []  # Limpa o histórico de logs anteriores
+            update_logs("🤖 Inicializando o Coment-AI...")
+
+            # Cria a instância do bot
+            bot = MarketingBot(gemini_api_key=gemini_key)
+            st.session_state.bot_instance = bot
+
+            try:
+                # Divide as hashtags informadas removendo espaços extras
+                tags = [tag.strip() for tag in niche_tags_input.split(",") if tag.strip()]
+                
+                # Executa o loop assíncrono do bot no orquestrador
+                asyncio.run(bot.run(
+                    instagram_user=instagram_user,
+                    product_link=product_link,
+                    product_description=product_description,
+                    niche_tags=tags,
+                    limit_per_tag=int(limit_posts_tag),
+                    limit_comments=int(limit_total_comments),
+                    log_callback=update_logs,
+                    comment_callback=add_comment_to_history
+                ))
+            except Exception as e:
+                update_logs(f"❌ Ocorreu um erro no loop principal: {e}")
+            finally:
+                st.session_state.bot_running = False
+                st.rerun()
+
+    # Tratamento da interrupção manual
+    if stop_btn:
+        if "bot_instance" in st.session_state and st.session_state.bot_instance:
+            st.session_state.bot_instance.stop()
+            update_logs("⏹️ Enviando sinal de parada para o navegador do robô...")
+        st.session_state.bot_running = False
+        st.rerun()
+
+with tab2:
+    st.write("### 📊 Histórico de Comentários Publicados nesta Sessão")
+    if not st.session_state.history:
+        st.info("Nenhum comentário foi enviado ainda nesta sessão.")
     else:
-        st.session_state.bot_running = True
-        st.session_state.logs = []  # Limpa o histórico de logs anteriores
-        update_logs("🤖 Inicializando o Coment-AI...")
-
-        # Cria a instância do bot
-        bot = MarketingBot(gemini_api_key=gemini_key)
-        st.session_state.bot_instance = bot
-
-        try:
-            # Divide as hashtags informadas removendo espaços extras
-            tags = [tag.strip() for tag in niche_tags_input.split(",") if tag.strip()]
-            
-            # Executa o loop assíncrono do bot no orquestrador (sem transmitir a senha)
-            asyncio.run(bot.run(
-                instagram_user=instagram_user,
-                product_link=product_link,
-                product_description=product_description,
-                niche_tags=tags,
-                log_callback=update_logs
-            ))
-        except Exception as e:
-            update_logs(f"❌ Ocorreu um erro no loop principal: {e}")
-        finally:
-            st.session_state.bot_running = False
-            st.rerun()
-
-# Tratamento da interrupção manual
-if stop_btn:
-    if "bot_instance" in st.session_state and st.session_state.bot_instance:
-        st.session_state.bot_instance.stop()
-        update_logs("⏹️ Enviando sinal de parada para o navegador do robô...")
-    st.session_state.bot_running = False
-    st.rerun()
+        # Exibe em formato de cards ordenados do mais recente para o mais antigo
+        for idx, item in enumerate(reversed(st.session_state.history)):
+            # Cria um card moderno com bordas nativas
+            with st.container(border=True):
+                col_card1, col_card2 = st.columns([4, 1])
+                with col_card1:
+                    st.markdown(f"💬 **Comentário #{len(st.session_state.history) - idx}**")
+                    st.write(f"\"{item['comentario']}\"")
+                with col_card2:
+                    # Adiciona um botão moderno de redirecionamento para o post
+                    st.link_button("🔗 Ver Post", item['url'], use_container_width=True)

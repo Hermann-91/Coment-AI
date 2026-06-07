@@ -27,7 +27,9 @@ class MarketingBot:
         product_description: str,
         niche_tags: list[str],
         limit_per_tag: int = 5,
-        log_callback=None
+        limit_comments: int = 3,
+        log_callback=None,
+        comment_callback=None
     ):
         def report(message: str, is_error: bool = False):
             if is_error:
@@ -39,6 +41,7 @@ class MarketingBot:
 
         self.is_running = True
         report("🚀 Iniciando a execução do Robo_marketing...")
+        comments_count = 0
 
         try:
             # 1. Scrape do site do produto
@@ -82,12 +85,21 @@ class MarketingBot:
                     report("⏹️ Execução interrompida pelo usuário.")
                     break
 
+                # Verifica se atingiu o limite de comentários da sessão
+                if comments_count >= limit_comments:
+                    report(f"🎯 Limite máximo de comentários atingido ({limit_comments}). Finalizando execução.")
+                    break
+
                 tag = tag.strip()
                 report(f"🔎 Analisando posts com a hashtag: #{tag}")
                 post_urls = await ig_scraper.get_posts_by_hashtag(tag, limit=limit_per_tag)
 
                 for url in post_urls:
                     if not self.is_running:
+                        break
+
+                    # Verifica novamente o limite de comentários antes de processar outro post
+                    if comments_count >= limit_comments:
                         break
 
                     report(f"Lendo publicação: {url}")
@@ -109,6 +121,18 @@ class MarketingBot:
                         report(f"✨ Dor identificada! Comentando no post: '{comment}'")
                         success = await ig_interactor.comment(url, comment)
                         if success:
+                            comments_count += 1
+                            if comment_callback:
+                                comment_callback({
+                                    "url": url,
+                                    "comentario": comment
+                                })
+                            
+                            # Se atingiu o limite máximo de comentários após esta publicação, encerra imediatamente
+                            if comments_count >= limit_comments:
+                                report(f"🎯 Limite máximo de comentários atingido ({limit_comments}). Finalizando.")
+                                return
+
                             delay = random.uniform(45.0, 90.0)
                             report(f"⏱️ Aguardando {delay:.1f} segundos de intervalo seguro (anti-ban)...")
                             await asyncio.sleep(delay)

@@ -103,7 +103,7 @@ class GeminiService:
         3. Se a pessoa estiver demonstrando, reclamando ou falando de algo ligado a uma dessas dores, gere um comentário de Instagram que:
            - Demonstre empatia direta e humana com o problema abordado no post (seja amigável e evite tom corporativo/robótico ou spam óbvio).
            - Aponte brevemente como o produto com o link {product_link} ajuda a resolver exatamente aquela dor apontada por ela.
-           - Seja sucinto: limite o comentário a no máximo 250 caracteres.
+           - Formatação Restrita: O comentário deve ser extremamente curto (máximo de 160 caracteres), escrito em um único parágrafo contínuo (sem quebras de linha/enters) e NÃO deve conter hashtags.
 
         Texto do Post do Instagram:
         "{post_text}"
