@@ -14,7 +14,7 @@ class InstagramScraper:
 
     async def get_posts_by_hashtag(self, hashtag: str, limit: int = 5) -> list[str]:
         """
-        Acessa a hashtag e extrai as URLs de posts recentes.
+        Acessa a hashtag, simula rolagens e extrai as URLs de posts recentes e Reels.
         """
         if not self.page:
             return []
@@ -24,16 +24,31 @@ class InstagramScraper:
 
         try:
             await self.page.goto(url, wait_until="load")
-            await asyncio.sleep(random.uniform(2.5, 5.0))
+            await asyncio.sleep(random.uniform(2.5, 4.0))
 
-            links = await self.page.locator('a[href*="/p/"]').all_attribute_values("href")
-            unique_links = list(set(links))[:limit]
+            # Simula um scroll suave para baixo para forçar o carregamento dinâmico do Instagram
+            logger.info("Realizando rolagem de página para carregar posts...")
+            await self.page.evaluate("window.scrollTo(0, 600)")
+            await asyncio.sleep(random.uniform(1.5, 3.0))
 
-            full_urls = [
-                f"https://www.instagram.com{link}" if not link.startswith("http") else link
-                for link in unique_links
-            ]
-            return full_urls
+            # Coleta links de posts tradicionais (/p/) e Reels (/reel/)
+            links_posts = await self.page.locator('a[href*="/p/"]').all_attribute_values("href")
+            links_reels = await self.page.locator('a[href*="/reel/"]').all_attribute_values("href")
+            
+            # Une as listas e remove duplicadas
+            all_links = list(set(links_posts + links_reels))
+            
+            # Filtra e formata para URLs absolutas
+            filtered_links = []
+            for link in all_links:
+                full_link = f"https://www.instagram.com{link}" if not link.startswith("http") else link
+                filtered_links.append(full_link)
+
+            # Limita a quantidade solicitada
+            unique_links = filtered_links[:limit]
+            
+            logger.info(f"Encontrados {len(unique_links)} posts/reels para a hashtag #{hashtag}.")
+            return unique_links
 
         except Exception as e:
             logger.error(f"Erro ao capturar posts da hashtag #{hashtag}: {e}")
@@ -51,6 +66,7 @@ class InstagramScraper:
             await self.page.goto(post_url, wait_until="load")
             await asyncio.sleep(random.uniform(2.0, 4.0))
 
+            # Seletores do Instagram comuns para a legenda principal
             caption_element = self.page.locator('h1, span[class*="x1lliihq"]')
             if await caption_element.count() > 0:
                 text = await caption_element.first.text_content()

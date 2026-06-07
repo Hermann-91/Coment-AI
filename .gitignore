@@ -17,6 +17,9 @@ __pycache__/
 *.log
 robot_marketing.log
 
+# Pasta de Perfil Persistente do Navegador (Contém cookies da sua sessão do Instagram)
+instagram_profile/
+
 # Configurações de IDEs e Editores
 .vscode/
 .idea/
