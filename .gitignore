@@ -1,0 +1,23 @@
+# Ambiente Virtual Python
+venv/
+.venv/
+env/
+
+# Configurações Sensíveis (Contendo senhas e chaves de API)
+.env
+
+# Cache do Python e Ferramentas de Teste
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Arquivos de logs locais
+*.log
+robot_marketing.log
+
+# Configurações de IDEs e Editores
+.vscode/
+.idea/
+.DS_Store
