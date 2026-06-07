@@ -1,7 +1,7 @@
 from unittest.mock import patch, MagicMock
-from src.services.gemini_service import GeminiService
+from src.services.api.gemini import GeminiService
 
-@patch("src.services.gemini_service.genai.GenerativeModel")
+@patch("src.services.api.gemini.genai.GenerativeModel")
 def test_analyze_product_success(mock_model_class):
     """
     Valida a análise de produto com o Gemini, garantindo que o retorno JSON
@@ -25,7 +25,7 @@ def test_analyze_product_success(mock_model_class):
     assert "custo de gasolina" in result["dores"]
     mock_model_instance.generate_content.assert_called_once()
 
-@patch("src.services.gemini_service.genai.GenerativeModel")
+@patch("src.services.api.gemini.genai.GenerativeModel")
 def test_evaluate_post_generate_comment(mock_model_class):
     """
     Testa a geração de comentário quando o post aborda uma dor relevante.
@@ -50,7 +50,7 @@ def test_evaluate_post_generate_comment(mock_model_class):
     # Assert
     assert comment == "Sei bem como é isso! Teste essa calculadora no link: https://meulink.com"
 
-@patch("src.services.gemini_service.genai.GenerativeModel")
+@patch("src.services.api.gemini.genai.GenerativeModel")
 def test_evaluate_post_should_skip(mock_model_class):
     """
     Testa se o serviço retorna None (Pular) quando a legenda do post não reflete nenhuma dor do produto.

@@ -11,13 +11,11 @@ class GeminiService:
     mapeamento de dores e geração de comentários de engajamento direcionados.
     """
     def __init__(self, api_key: str = "", model_name: str = "models/gemma-4-31b-it"):
-        # Prioriza a chave de API inserida na interface Streamlit; se vazia, usa a do arquivo .env
         self.api_key = api_key or Config.GEMINI_API_KEY
         self.model_name = model_name
         
         if self.api_key:
             genai.configure(api_key=self.api_key)
-            # Definido o modelo padrão escolhido para as análises e gerações
             self.model = genai.GenerativeModel(self.model_name)
             logger.info(f"API Gemini inicializada com sucesso usando o modelo: {self.model_name}")
         else:
@@ -75,7 +73,6 @@ class GeminiService:
 
         except Exception as e:
             logger.error(f"Erro ao realizar análise do produto no Gemini: {e}")
-            # Fallback seguro
             return {
                 "persona": "Persona definida por descrição rápida",
                 "dores": [product_description] if product_description else ["Problemas de gestão/custos gerais"]

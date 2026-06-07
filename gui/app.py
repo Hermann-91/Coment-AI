@@ -1,49 +1,47 @@
 import streamlit as st
-import time
+import asyncio
+from src.core.bot import MarketingBot
 
 # Configurações de layout da página do Streamlit
 st.set_page_config(
-    page_title="Robo_marketing - Automação Inteligente",
+    page_title="Coment-AI - Robô de Marketing",
     page_icon="🤖",
-    layout="centered",
-    initial_sidebar_state="collapsed"
+    layout="centered"
 )
 
-# Estilização básica (CSS simples para complementar o visual do Streamlit)
+# Estilo para os botões e espaçamentos
 st.markdown("""
     <style>
     div.stButton > button:first-child {
-        background-color: #2e7d32;
-        color: white;
         border-radius: 8px;
-        padding: 0.5rem 2rem;
-        border: none;
         font-weight: bold;
-    }
-    div.stButton > button:first-child:hover {
-        background-color: #1b5e20;
-        border: none;
     }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🤖 Robo_marketing")
-st.subheader("Automação de Divulgação Inteligente no Instagram")
+st.title("🤖 Coment-AI")
+st.subheader("Divulgação Inteligente no Instagram direcionada por IA")
 
 st.markdown("""
 Este robô analisa o site do seu produto digital, identifica dores de potenciais clientes no Instagram
 e realiza comentários automatizados e personalizados relacionando a dor do cliente ao seu produto.
 """)
 
+# Inicializa o estado dos logs e o estado de execução do bot na sessão do Streamlit
+if "logs" not in st.session_state:
+    st.session_state.logs = []
+if "bot_running" not in st.session_state:
+    st.session_state.bot_running = False
+
 # Painel de Credenciais e Acessos
 st.write("### 🔑 Credenciais e Acessos")
 col1, col2 = st.columns(2)
 with col1:
-    instagram_user = st.text_input("Usuário do Instagram", placeholder="seu_usuario")
+    instagram_user = st.text_input("Usuário do Instagram", placeholder="seu_usuario", value="")
 with col2:
-    instagram_pass = st.text_input("Senha do Instagram", type="password", placeholder="sua_senha")
+    instagram_pass = st.text_input("Senha do Instagram", type="password", placeholder="sua_senha", value="")
 
-gemini_key = st.text_input("Chave de API do Gemini", type="password", placeholder="AIzaSy...")
+gemini_key = st.text_input("Chave de API do Gemini", type="password", placeholder="Chave da API (ou deixe vazio se configurado no .env)", value="")
 
 # Configurações do Produto
 st.write("### 📦 Informações do Produto")
@@ -55,44 +53,68 @@ product_description = st.text_area(
 
 # Configurações de Busca e Nicho
 st.write("### 🎯 Nicho e Busca")
-niche_tags = st.text_input("Hashtags ou Perfis Alvo (separados por vírgula)", placeholder="motoristasdeaplicativo, uberbr, 99pop")
+niche_tags_input = st.text_input("Hashtags Alvo (separadas por vírgula)", placeholder="motoristasdeaplicativo, uberbr, 99pop")
 
 st.write("---")
 
-# Botões de Ação e Simulação
-if st.button("Iniciar Automação"):
+# Contêiner dinâmico reservado para os logs de execução na tela
+log_placeholder = st.empty()
+
+# Se existirem logs de execuções anteriores, exibe-os
+if st.session_state.logs:
+    log_placeholder.code("\n".join(st.session_state.logs), language="bash")
+
+# Função de callback que o orquestrador do bot chamará para imprimir logs na tela em tempo real
+def update_logs(message: str):
+    st.session_state.logs.append(message)
+    # Atualiza dinamicamente o bloco de código de log na interface gráfica
+    log_placeholder.code("\n".join(st.session_state.logs), language="bash")
+
+# Botões de Controle
+col_start, col_stop = st.columns(2)
+
+with col_start:
+    start_btn = st.button("🚀 Iniciar Automação", use_container_width=True, disabled=st.session_state.bot_running)
+
+with col_stop:
+    stop_btn = st.button("⏹️ Parar Automação", use_container_width=True, disabled=not st.session_state.bot_running)
+
+# Tratamento da inicialização da automação
+if start_btn:
     if not instagram_user or not instagram_pass or not product_link:
-        st.error("Por favor, preencha o Usuário, Senha e o Link do Produto!")
+        st.error("Por favor, preencha o Usuário, Senha do Instagram e o Link do Produto!")
     else:
-        st.success("🤖 Inicializando robô... (Simulando execução)")
-        
-        # Simulação visual de execução e logs
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        status_text.text("1. Lendo informações do site do produto...")
-        time.sleep(1.5)
-        progress_bar.progress(25)
-        
-        status_text.text("2. Construindo a persona e mapeando dores com a IA Gemini...")
-        time.sleep(2.0)
-        progress_bar.progress(50)
-        
-        status_text.text("3. Inicializando navegador Playwright de forma oculta...")
-        time.sleep(1.5)
-        progress_bar.progress(75)
-        
-        status_text.text("4. Buscando posts do nicho no Instagram...")
-        time.sleep(1.5)
-        progress_bar.progress(100)
-        
-        status_text.text("🚀 Robô em execução!")
-        
-        st.info("Logs de Atividade (Simulado):")
-        st.code("""
-[INFO] - Analisando perfil: @motorista_uber_sp
-[INFO] - Post identificado: 'Reclamação sobre o preço do combustível'
-[IA] - Dor mapeada: Custos elevados de combustível comprometendo o lucro.
-[IA] - Comentário gerado: 'A alta do combustível está complicada mesmo. Para ajudar na gestão das despesas, essa planilha de custos faz todo o cálculo de lucro real automaticamente e ajuda a ver onde economizar. Dá uma olhada no link!'
-[SUCCESS] - Comentário publicado com sucesso!
-        """, language="bash")
+        st.session_state.bot_running = True
+        st.session_state.logs = []  # Limpa o histórico de logs anteriores
+        update_logs("🤖 Inicializando o Coment-AI...")
+
+        # Cria a instância do bot injetando a chave opcional
+        bot = MarketingBot(gemini_api_key=gemini_key)
+        st.session_state.bot_instance = bot
+
+        try:
+            # Divide as hashtags informadas removendo espaços extras
+            tags = [tag.strip() for tag in niche_tags_input.split(",") if tag.strip()]
+            
+            # Executa o loop assíncrono do bot no orquestrador
+            asyncio.run(bot.run(
+                instagram_user=instagram_user,
+                instagram_pass=instagram_pass,
+                product_link=product_link,
+                product_description=product_description,
+                niche_tags=tags,
+                log_callback=update_logs
+            ))
+        except Exception as e:
+            update_logs(f"❌ Ocorreu um erro no loop principal: {e}")
+        finally:
+            st.session_state.bot_running = False
+            st.rerun()
+
+# Tratamento da interrupção manual
+if stop_btn:
+    if "bot_instance" in st.session_state and st.session_state.bot_instance:
+        st.session_state.bot_instance.stop()
+        update_logs("⏹️ Enviando sinal de parada para o navegador do robô...")
+    st.session_state.bot_running = False
+    st.rerun()
