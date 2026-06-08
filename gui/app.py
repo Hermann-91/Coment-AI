@@ -109,7 +109,7 @@ with tab1:
         st.info("A IA mapeou as seguintes palavras-chave de segurança. Você pode editá-las livremente!")
         
         editable_persona = st.text_input("Persona Alvo", value=st.session_state.persona)
-        editable_positivas = st.text_area("5 Palavras-chave Positivas (Afinidade 65% - separadas por vírgula)", value=st.session_state.palavras_chave)
+        editable_positivas = st.text_area("5 Palavras-chave Positivas (Mínimo 2 - separadas por vírgula)", value=st.session_state.palavras_chave)
         editable_negativas = st.text_area("5 Palavras-chave Negativas (Veto Absoluto - separadas por vírgula)", value=st.session_state.exclusoes)
 
         st.write("---")

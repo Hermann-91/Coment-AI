@@ -87,8 +87,8 @@ class GeminiService:
 
     def evaluate_post_and_generate_comment(self, post_text: str, product_analysis: dict, product_link: str) -> str | None:
         """
-        Analisa a legenda de um post de terceiros no Instagram.
-        Aplica veto absoluto (100%) para palavras de exclusão e regra semântica de relevância de 65% para palavras positivas.
+        Analisa o texto de um post (legenda e/ou comentários) no Instagram.
+        Aplica veto absoluto (100%) para palavras de exclusão e regra semântica de relevância de pelo menos 2 palavras-chave positivas.
         """
         if not self.model:
             logger.error("API do Gemini não configurada.")
@@ -110,15 +110,15 @@ class GeminiService:
         Link de divulgação do produto: {product_link}
 
         Instruções obrigatórias de ação para classificação e escrita:
-        1. REGRA DE VETO ABSOLUTO (REGRAS NEGATIVAS): Analise a legenda do post do Instagram. Se ela contiver QUALQUER uma das 5 palavras-chave negativas de exclusão descritas acima (ou variações delas, como plural/sinônimos de venda, aluguel, repasse, autopeças ou anúncios comerciais de carros), responda EXCLUSIVAMENTE com a palavra: PULAR
-        2. REGRA DE RELEVÂNCIA DE 65% (REGRAS POSITIVAS): Avalie se a legenda do post aborda ou está semanticamente relacionada a pelo menos 65% do contexto das palavras-chave positivas fornecidas. Se a legenda do post de um motorista falar sobre a rotina de trabalho dele, mostrar corridas, compartilhar ganhos, cansaço, lucros ou faturamento, ela bate com a relevância de 65% e você deve considerá-lo RELEVANTE. Caso contrário, responda EXCLUSIVAMENTE com a palavra: PULAR
+        1. REGRA DE VETO ABSOLUTO (REGRAS NEGATIVAS): Analise o texto fornecido (que contém a legenda e/ou os primeiros comentários do post). Se ele contiver QUALQUER uma das 5 palavras-chave negativas de exclusão descritas acima (ou variações delas, como plural/sinônimos de venda, aluguel, repasse, autopeças ou anúncios comerciais de carros), responda EXCLUSIVAMENTE com a palavra: PULAR
+        2. REGRA DE RELEVÂNCIA (REGRAS POSITIVAS): Avalie se o texto aborda ou contém pelo menos 2 das palavras-chave positivas fornecidas (ou variações morfológicas/sinônimos muito próximos de cada uma). Se o texto tratar de assuntos correspondentes a pelo menos 2 dessas palavras-chave positivas, considere-o RELEVANTE. Se não tratar de pelo menos 2 assuntos correspondentes, responda EXCLUSIVAMENTE com a palavra: PULAR
         3. Se o post passar nas regras e for RELEVANTE, gere um comentário de engajamento que:
            - Demonstre empatia real e profissional com a dor ou desafio do autor (ex: 'Gerenciar os ganhos e despesas diárias é um desafio constante...').
            - Indique de forma sutil e natural a ferramenta do link {product_link} no meio da frase (ex: '...eu uso este link {product_link} para ajudar a calcular quais corridas compensam mais...').
            - Escreva o comentário INTEIRAMENTE em Português do Brasil (PT-BR).
            - Regras rígidas de formatação: O comentário deve ter no máximo 160 caracteres, ser escrito em parágrafo único (sem quebras de linha/enters), sem nenhuma hashtag (#) e sem termos de spam corporativo (ex: evite 'compre', 'adquira', 'solução revolucionária', 'link abaixo').
 
-        Texto da Legenda do Instagram:
+        Texto do Post (Legenda e Comentários):
         "{post_text}"
 
         Resposta (Apenas o comentário gerado ou a palavra PULAR):

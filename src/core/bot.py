@@ -48,7 +48,7 @@ class MarketingBot:
             # Roda com o mapeamento dinâmico que o usuário revisou/ajustou no Streamlit
             report("1. Carregando mapeamento de persona e regras da IA fornecidos...")
             report(f" Persona ativa: {product_analysis.get('persona', 'Geral')}")
-            report(f" -> Palavras-chave Positivas (Afinidade 65%): {', '.join(product_analysis.get('palavras_chave', []))}")
+            report(f" -> Palavras-chave Positivas (Mínimo 2): {', '.join(product_analysis.get('palavras_chave', []))}")
             report(f" -> Palavras-chave Negativas (Veto Absoluto): {', '.join(product_analysis.get('exclusoes', []))}")
 
             if not product_analysis.get("palavras_chave"):

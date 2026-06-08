@@ -73,19 +73,20 @@ class InstagramScraper:
 
     async def get_post_caption(self, post_url: str) -> str:
         """
-        Acessa um post e extrai o texto da legenda do autor de forma assíncrona com espera ativa.
-        Varre todos os elementos da página e filtra elementos do menu do Instagram por conteúdo e tamanho.
+        Acessa um post e extrai o texto da legenda do autor E os primeiros comentários válidos
+        de forma assíncrona com espera ativa.
+        Junta os blocos de texto úteis (até 4 blocos) para ajudar na análise semântica.
         """
         if not self.page:
             return ""
 
         try:
-            logger.info(f"Extraindo legenda da URL: {post_url}")
+            logger.info(f"Extraindo legenda e comentários da URL: {post_url}")
             await self.page.goto(post_url, wait_until="load")
             
-            # Seletores amplos e globais de legenda
+            # Seletores amplos e globais de legenda e comentários
             caption_selectors = [
-                'h1',                           # h1 da legenda
+                'h1',                           # h1 da legenda do autor
                 'span[class*="_ap3a"]',         # Classe comum de texto no post
                 'span[class*="x1lliihq"]'       # Classe genérica de texto no Instagram
             ]
@@ -106,7 +107,10 @@ class InstagramScraper:
                 except Exception:
                     continue
 
-            # Varre os seletores para encontrar o primeiro texto de legenda válido
+            collected_blocks = []
+            seen_texts = set()
+
+            # Varre os seletores acumulando blocos de texto únicos (legenda + primeiros comentários)
             for selector in caption_selectors:
                 locators = self.page.locator(selector)
                 count = await locators.count()
@@ -116,18 +120,35 @@ class InstagramScraper:
                         text = await locators.nth(i).text_content()
                         if text:
                             cleaned_text = text.strip()
-                            # Descarta textos que são termos de menu ou muito curtos para serem legendas reais
-                            if cleaned_text.lower() in menu_terms or len(cleaned_text) <= 15:
+                            
+                            # Ignora se for menu ou se for muito curto (menor ou igual a 12 caracteres)
+                            if cleaned_text.lower() in menu_terms or len(cleaned_text) <= 12:
                                 continue
                             
-                            logger.info(f"Legenda capturada com sucesso via '{selector}': {cleaned_text[:50]}...")
-                            return cleaned_text
+                            # Evita repetição exata
+                            normalized_text = cleaned_text.lower()
+                            if normalized_text in seen_texts:
+                                continue
+                                
+                            seen_texts.add(normalized_text)
+                            collected_blocks.append(cleaned_text)
+                            
+                            # Limita a leitura a no máximo 4 blocos de texto (ex: legenda + 3 comentários)
+                            if len(collected_blocks) >= 4:
+                                break
                     except Exception:
                         continue
+                if len(collected_blocks) >= 4:
+                    break
 
-            logger.warning("Nenhum seletor contendo legenda de postagem retornou dados válidos.")
+            if collected_blocks:
+                full_text = "\n\n".join(collected_blocks)
+                logger.info(f"Legenda e comentários capturados com sucesso. Encontrados {len(collected_blocks)} blocos. Tamanho: {len(full_text)} caracteres.")
+                return full_text
+
+            logger.warning("Nenhum seletor contendo legenda ou comentários de postagem retornou dados válidos.")
             return ""
 
         except Exception as e:
-            logger.error(f"Falha ao ler legenda do post {post_url}: {e}")
+            logger.error(f"Falha ao ler legenda/comentários do post {post_url}: {e}")
             return ""
