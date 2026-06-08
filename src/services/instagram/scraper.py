@@ -14,7 +14,7 @@ class InstagramScraper:
 
     async def get_posts_by_hashtag(self, hashtag: str, limit: int = 5) -> list[str]:
         """
-        Acessa a hashtag, aguarda a renderização ativa dos posts e extrai as URLs.
+        Acessa a hashtag, aguarda a renderização activa dos posts e extrai as URLs.
         """
         if not self.page:
             return []
@@ -38,18 +38,28 @@ class InstagramScraper:
             await self.page.evaluate("window.scrollTo(0, 600)")
             await asyncio.sleep(random.uniform(1.5, 3.0))
 
-            # Coleta links de posts tradicionais (/p/) e Reels (/reel/)
-            links_posts = await self.page.locator('a[href*="/p/"]').all_attribute_values("href")
-            links_reels = await self.page.locator('a[href*="/reel/"]').all_attribute_values("href")
+            # Coleta links de posts tradicionais (/p/) e Reels (/reel/) usando evaluate_all
+            logger.info("Extraindo links de posts e reels...")
+            links_posts = await self.page.locator('a[href*="/p/"]').evaluate_all(
+                "elements => elements.map(el => el.getAttribute('href'))"
+            )
+            links_reels = await self.page.locator('a[href*="/reel/"]').evaluate_all(
+                "elements => elements.map(el => el.getAttribute('href'))"
+            )
             
+            # Garante que as variáveis sejam listas mesmo em caso de retorno nulo
+            links_posts = links_posts or []
+            links_reels = links_reels or []
+
             # Une as listas e remove duplicadas
             all_links = list(set(links_posts + links_reels))
             
             # Filtra e formata para URLs absolutas
             filtered_links = []
             for link in all_links:
-                full_link = f"https://www.instagram.com{link}" if not link.startswith("http") else link
-                filtered_links.append(full_link)
+                if link:
+                    full_link = f"https://www.instagram.com{link}" if not link.startswith("http") else link
+                    filtered_links.append(full_link)
 
             # Limita a quantidade solicitada
             unique_links = filtered_links[:limit]
