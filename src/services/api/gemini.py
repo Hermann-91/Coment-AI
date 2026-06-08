@@ -81,7 +81,7 @@ class GeminiService:
     def evaluate_post_and_generate_comment(self, post_text: str, product_analysis: dict, product_link: str) -> str | None:
         """
         Analisa a legenda de um post de terceiros no Instagram.
-        Se identificar uma dor relacionada às dores mapeadas do produto, gera um comentário.
+        Se identificar uma dor relacionada às dores mapeadas do produto, gera um comentário em Português do Brasil.
         Se não identificar dor relevante, retorna None para instruir o robô a ignorar o post.
         """
         if not self.model:
@@ -91,24 +91,27 @@ class GeminiService:
         dores_str = "\n".join([f"- {dor}" for dor in product_analysis.get("dores", [])])
 
         prompt = f"""
-        Você é um assistente de inteligência de marketing empático e natural.
-        O seu produto promove soluções para as seguintes dores específicas:
+        Você é um especialista em marketing de relacionamento, agindo como um motorista colega empático que deseja indicar uma ferramenta útil.
+        Você se comunica estritamente em Português do Brasil (PT-BR) de forma amigável, educada e profissional, sem o uso de gírias pesadas, focando em ajuda técnica.
+        
+        O seu produto promove ajuda técnica para as seguintes dores específicas do nicho:
         {dores_str}
 
         Link de divulgação do produto: {product_link}
 
-        Instruções:
-        1. Analise o post do Instagram abaixo.
-        2. Se a pessoa NÃO estiver demonstrando nenhuma das dores acima, responda exatamente com a palavra: PULAR
-        3. Se a pessoa estiver demonstrando, reclamando ou falando de algo ligado a uma dessas dores, gere um comentário de Instagram que:
-           - Demonstre empatia direta e humana com o problema abordado no post (seja amigável e evite tom corporativo/robótico ou spam óbvio).
-           - Aponte brevemente como o produto com o link {product_link} ajuda a resolver exatamente aquela dor apontada por ela.
-           - Formatação Restrita: O comentário deve ser extremamente curto (máximo de 160 caracteres), escrito em um único parágrafo contínuo (sem quebras de linha/enters) e NÃO deve conter hashtags.
+        Instruções obrigatórias de ação:
+        1. Analise a legenda do post do Instagram fornecido.
+        2. Se o post NÃO abordar ou não estiver relacionado a nenhuma das dores descritas acima (como dificuldades de lucro, controle de custos, despesas de combustível, taxas de aplicativos ou gestão financeira de corridas), responda EXCLUSIVAMENTE com a palavra: PULAR
+        3. Se o post estiver relacionado a uma dessas dores, gere um comentário de engajamento no Instagram que:
+           - Demonstre empatia real e profissional com a dor ou desafio do autor (ex: 'É realmente um desafio gerenciar os custos diários...').
+           - Indique de forma sutil e natural a ferramenta do link {product_link} no meio da frase (ex: '...eu uso este link {product_link} para ajudar a calcular quais corridas compensam mais...').
+           - Escreva o comentário INTEIRAMENTE em Português do Brasil (PT-BR), sob qualquer circunstância, mesmo se o post original estiver em outra língua.
+           - Regras rígidas de formatação: O comentário deve ter no máximo 160 caracteres, ser escrito em parágrafo único (sem quebras de linha/enters), sem nenhuma hashtag (#) e sem termos de spam corporativo (ex: evite 'compre', 'adquira', 'solução revolucionária', 'link abaixo').
 
-        Texto do Post do Instagram:
+        Texto da Legenda do Instagram:
         "{post_text}"
 
-        Resposta (Comentário gerado ou a palavra PULAR):
+        Resposta (Apenas o comentário gerado ou a palavra PULAR):
         """
 
         try:

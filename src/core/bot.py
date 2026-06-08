@@ -42,6 +42,7 @@ class MarketingBot:
         self.is_running = True
         report("🚀 Iniciando a execução do Robo_marketing...")
         comments_count = 0
+        commented_posts = set()  # Controle local para evitar comentar no mesmo post nesta sessão
 
         try:
             # 1. Scrape do site do produto
@@ -102,6 +103,11 @@ class MarketingBot:
                     if comments_count >= limit_comments:
                         break
 
+                    # Evita comentar no mesmo post duas vezes na mesma rodada (mesmo que mude a hashtag)
+                    if url in commented_posts:
+                        logger.info(f"O post {url} já foi comentado nesta rodada. Pulando duplicado...")
+                        continue
+
                     report(f"Lendo publicação: {url}")
                     caption = await ig_scraper.get_post_caption(url)
                     
@@ -121,6 +127,7 @@ class MarketingBot:
                         report(f"✨ Dor identificada! Comentando no post: '{comment}'")
                         success = await ig_interactor.comment(url, comment)
                         if success:
+                            commented_posts.add(url)  # Adiciona ao controle de posts comentados
                             comments_count += 1
                             if comment_callback:
                                 comment_callback({
