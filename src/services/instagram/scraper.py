@@ -73,7 +73,7 @@ class InstagramScraper:
 
     async def get_post_caption(self, post_url: str) -> str:
         """
-        Acessa um post e extrai o texto da legenda do autor.
+        Acessa um post e extrai o texto da legenda do autor de forma assíncrona com espera ativa.
         """
         if not self.page:
             return ""
@@ -81,14 +81,34 @@ class InstagramScraper:
         try:
             logger.info(f"Extraindo legenda da URL: {post_url}")
             await self.page.goto(post_url, wait_until="load")
-            await asyncio.sleep(random.uniform(2.0, 4.0))
-
-            # Seletores do Instagram comuns para a legenda principal
-            caption_element = self.page.locator('h1, span[class*="x1lliihq"]')
-            if await caption_element.count() > 0:
-                text = await caption_element.first.text_content()
-                return text.strip()
             
+            # ESPERA ATIVA: Aguarda até 10 segundos para a legenda (h1) estar visível
+            caption_locator = self.page.locator('h1')
+            try:
+                # Aguarda o elemento h1 ficar visível na página (padrão de legenda do Instagram)
+                await caption_locator.first.wait_for(state="visible", timeout=10000)
+            except Exception:
+                logger.warning(f"⚠️ Timeout ao aguardar h1 na página do post: {post_url}")
+                pass
+
+            # Tenta ler a legenda do h1
+            if await caption_locator.count() > 0:
+                text = await caption_locator.first.text_content()
+                if text and len(text.strip()) > 0:
+                    caption_text = text.strip()
+                    logger.info(f"Legenda capturada via h1 com sucesso: {caption_text[:50]}...")
+                    return caption_text
+
+            # Seletor alternativo (fallback) caso o h1 não tenha texto ou falhe
+            fallback_locator = self.page.locator('span[class*="x1lliihq"]')
+            if await fallback_locator.count() > 0:
+                text = await fallback_locator.first.text_content()
+                if text and len(text.strip()) > 0:
+                    caption_text = text.strip()
+                    logger.info(f"Legenda capturada via seletor alternativo: {caption_text[:50]}...")
+                    return caption_text
+
+            logger.warning("Nenhum seletor contendo legenda de postagem retornou dados.")
             return ""
 
         except Exception as e:
