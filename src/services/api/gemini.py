@@ -119,12 +119,46 @@ class GeminiService:
             response = self.model.generate_content(prompt)
             answer = response.text.strip()
 
-            if answer.upper() == "PULAR":
-                logger.info("Post considerado incompatível ou sem dor relevante. Pulando.")
+            # Pós-processamento robusto de segurança:
+            # Se a resposta contiver a palavra 'PULAR' em qualquer lugar (independente de explicações ou idioma), pulamos o post
+            if "PULAR" in answer.upper():
+                logger.info("Post considerado incompatível ou sem dor relevante (sinalizado PULAR). Pulando.")
                 return None
 
-            logger.info("Comentário inteligente gerado com sucesso.")
-            return answer
+            # Limpa possíveis blocos extras, tópicos markdown ou raciocínios que a IA possa retornar
+            lines = [line.strip() for line in answer.split("\n") if line.strip()]
+            valid_comment = ""
+            
+            # Busca a linha que de fato seja o comentário final, descartando metadados de explicações
+            for line in lines:
+                if not line.startswith("*") and not line.startswith("-") and not line.startswith("[") and ":" not in line:
+                    if len(line) > 10:
+                        valid_comment = line
+                        break
+
+            if not valid_comment and lines:
+                valid_comment = lines[-1]
+
+            # Remove aspas se a IA envelopou o comentário
+            if valid_comment.startswith('"') and valid_comment.endswith('"'):
+                valid_comment = valid_comment[1:-1]
+            if valid_comment.startswith("'") and valid_comment.endswith("'"):
+                valid_comment = valid_comment[1:-1]
+
+            valid_comment = valid_comment.strip()
+
+            # Se a limpeza falhou e a resposta ainda contiver metadados ou termos de instrução,
+            # ou se for a palavra PULAR escondida no texto, cancelamos o comentário por segurança
+            if "pular" in valid_comment.lower() or "role:" in valid_comment.lower() or "input:" in valid_comment.lower():
+                logger.warning("Falso comentário detectado durante a limpeza. Ignorando post por segurança.")
+                return None
+
+            # Corta se exceder o tamanho máximo de segurança
+            if len(valid_comment) > 180:
+                valid_comment = valid_comment[:157] + "..."
+
+            logger.info(f"Comentário limpo gerado com sucesso: '{valid_comment}'")
+            return valid_comment
 
         except Exception as e:
             logger.error(f"Erro ao gerar comentário no Gemini para o post: {e}")
