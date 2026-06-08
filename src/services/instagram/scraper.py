@@ -74,7 +74,7 @@ class InstagramScraper:
     async def get_post_caption(self, post_url: str) -> str:
         """
         Acessa um post e extrai o texto da legenda do autor de forma assíncrona com espera ativa.
-        Restringe a busca estritamente à área do post (article) para evitar ler os menus do Instagram.
+        Varre todos os elementos da página e filtra elementos do menu do Instagram por conteúdo e tamanho.
         """
         if not self.page:
             return ""
@@ -83,20 +83,19 @@ class InstagramScraper:
             logger.info(f"Extraindo legenda da URL: {post_url}")
             await self.page.goto(post_url, wait_until="load")
             
-            # Seletores de legenda estritamente restritos ao artigo do post ou caixa de diálogo
+            # Seletores amplos e globais de legenda
             caption_selectors = [
-                'article h1',
-                'article span[class*="_ap3a"]',
-                'article span[class*="x1lliihq"]',
-                'div[role="dialog"] h1',
-                'div[role="dialog"] span[class*="x1lliihq"]'
+                'h1',                           # h1 da legenda
+                'span[class*="_ap3a"]',         # Classe comum de texto no post
+                'span[class*="x1lliihq"]'       # Classe genérica de texto no Instagram
             ]
 
-            # Termos comuns do menu lateral que devem ser descartados caso sejam capturados por engano
+            # Termos comuns da interface/menu lateral do Instagram que devem ser descartados
             menu_terms = {
                 "página inicial", "pesquisa", "explorar", "reels", "mensagens", 
                 "notificações", "criar", "perfil", "mais", "instagram", "entrar", "cadastre-se",
-                "home", "search", "explore", "messages", "notifications", "create", "profile"
+                "home", "search", "explore", "messages", "notifications", "create", "profile",
+                "log in", "sign up", "configurações", "settings"
             }
 
             # ESPERA ATIVA: Aguarda até 8 segundos no total para que algum seletor fique visível
@@ -113,13 +112,18 @@ class InstagramScraper:
                 count = await locators.count()
                 
                 for i in range(count):
-                    text = await locators.nth(i).text_content()
-                    if text:
-                        cleaned_text = text.strip()
-                        # Valida se o texto é uma legenda válida e não pertence à interface/menu do Instagram
-                        if len(cleaned_text) > 5 and cleaned_text.lower() not in menu_terms:
+                    try:
+                        text = await locators.nth(i).text_content()
+                        if text:
+                            cleaned_text = text.strip()
+                            # Descarta textos que são termos de menu ou muito curtos para serem legendas reais
+                            if cleaned_text.lower() in menu_terms or len(cleaned_text) <= 15:
+                                continue
+                            
                             logger.info(f"Legenda capturada com sucesso via '{selector}': {cleaned_text[:50]}...")
                             return cleaned_text
+                    except Exception:
+                        continue
 
             logger.warning("Nenhum seletor contendo legenda de postagem retornou dados válidos.")
             return ""
