@@ -76,25 +76,49 @@ class InstagramInteractor:
 
         try:
             if self.page.url != post_url:
+                logger.info(f"Navegando até o post: {post_url}")
                 await self.page.goto(post_url, wait_until="load")
                 await asyncio.sleep(random.uniform(2.0, 3.5))
 
-            comment_box = self.page.locator('textarea[placeholder*="Adicione um comentário"]')
+            # Seletor multilíngue para a caixa de comentário
+            comment_box = self.page.locator(
+                'textarea[placeholder*="comentário"], '
+                'textarea[placeholder*="comment"], '
+                'textarea[aria-label*="comentário"], '
+                'textarea[aria-label*="comment"]'
+            ).first
+
+            # Aguarda a caixa de comentário estar visível
+            await comment_box.wait_for(state="visible", timeout=10000)
             await comment_box.click()
             await asyncio.sleep(random.uniform(0.5, 1.0))
 
             logger.info("Simulando digitação humana do comentário...")
+            # Limpa qualquer texto residual antes de digitar
+            await comment_box.fill("")
+            await asyncio.sleep(random.uniform(0.2, 0.5))
+
             for caractere in comment_text:
                 await comment_box.type(caractere)
                 await asyncio.sleep(random.uniform(0.04, 0.18))
 
             await asyncio.sleep(random.uniform(0.5, 1.2))
+
+            # Seletor multilíngue para o botão de postar
+            publish_button = self.page.locator(
+                'div[role="button"]:has-text("Postar"), '
+                'div[role="button"]:has-text("Publicar"), '
+                'div[role="button"]:has-text("Post"), '
+                'div[role="button"]:has-text("Publish")'
+            ).first
+
+            # Aguarda o botão estar visível e clica
+            await publish_button.wait_for(state="visible", timeout=5000)
+            await publish_button.click()
             
-            # Clica em Publicar
-            await self.page.click('div[role="button"]:has-text("Publicar")')
+            logger.info("Comentário enviado! Aguardando estabilização...")
             await asyncio.sleep(random.uniform(3.0, 5.0))
             
-            logger.info("Comentário enviado.")
             return True
 
         except Exception as e:
