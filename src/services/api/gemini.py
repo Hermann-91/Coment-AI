@@ -87,8 +87,7 @@ class GeminiService:
     def evaluate_post_and_generate_comment(self, post_text: str, product_analysis: dict, product_link: str) -> str | None:
         """
         Analisa a legenda de um post de terceiros no Instagram.
-        Compara com as dores (regras positivas) e com as exclusões (regras negativas) fornecidas.
-        Se bater com alguma exclusão ou não demonstrar dores, retorna None (Pula).
+        Compara de forma amigável e flexível com as dores e exclusões de spam/anúncios comerciais.
         """
         if not self.model:
             logger.error("API do Gemini não configurada.")
@@ -101,22 +100,22 @@ class GeminiService:
         Você é um especialista em marketing de relacionamento, agindo como um colega empático que deseja indicar uma ferramenta útil.
         Você se comunica estritamente em Português do Brasil (PT-BR) de forma amigável, educada e profissional, sem o uso de gírias pesadas, focando em ajuda técnica.
         
-        O seu produto promove ajuda técnica para as seguintes dores específicas (Regras Positivas):
+        O seu produto promove ajuda técnica para as seguintes dores ou interesses específicos do nicho (Regras Positivas):
         {dores_str}
 
-        Regras Negativas de Exclusão (Ignore totalmente e responda PULAR para posts sobre estes temas):
+        Regras Negativas de Exclusão (Ignore totalmente e responda PULAR para posts comerciais sobre estes temas):
         {exclusoes_str}
 
         Link de divulgação do produto: {product_link}
 
         Instruções obrigatórias de ação:
         1. Analise a legenda do post do Instagram fornecido.
-        2. Se o post estiver relacionado a qualquer uma das Regras Negativas de Exclusão descritas acima (como anúncios comerciais de venda ou aluguel de carros, promoções de oficinas, ou propagandas comerciais), responda EXCLUSIVAMENTE com a palavra: PULAR
-        3. Se o post NÃO abordar ou não estiver relacionado a nenhuma das dores positivas descritas acima, responda EXCLUSIVAMENTE com a palavra: PULAR
-        4. Se o post estiver relacionado a uma dessas dores positivas, gere um comentário de engajamento no Instagram que:
-           - Demonstre empatia real e profissional com a dor ou desafio do autor (ex: 'É realmente um desafio gerenciar os custos diários...').
+        2. Seja flexível e proativo: O objetivo é engajar com motoristas reais. Se o post for de um motorista mostrando corridas, faturamento, rotina de trabalho ou relatando o dia a dia, você DEVE considerar relevante e gerar o comentário! Tente fazer uma correlação amigável entre o dia a dia dele e a importância de ter uma boa calculadora/gestão de despesas para ajudar a faturar mais.
+        3. Apenas responda PULAR se o post for um anúncio comercial puro de venda/aluguel de carros de concessionárias ou se for de outro nicho totalmente irrelevante para a vida de um motorista de aplicativo.
+        4. Ao gerar o comentário, certifique-se de que ele:
+           - Demonstre empatia real e profissional com a dor ou desafio do autor (ex: 'Gerenciar os ganhos e despesas diárias é um desafio constante...').
            - Indique de forma sutil e natural a ferramenta do link {product_link} no meio da frase (ex: '...eu uso este link {product_link} para ajudar a calcular quais corridas compensam mais...').
-           - Escreva o comentário INTEIRAMENTE em Português do Brasil (PT-BR), sob qualquer circunstância, mesmo se o post original estiver em outra língua.
+           - Escreva o comentário INTEIRAMENTE em Português do Brasil (PT-BR).
            - Regras rígidas de formatação: O comentário deve ter no máximo 160 caracteres, ser escrito em parágrafo único (sem quebras de linha/enters), sem nenhuma hashtag (#) e sem termos de spam corporativo (ex: evite 'compre', 'adquira', 'solução revolucionária', 'link abaixo').
 
         Texto da Legenda do Instagram:
