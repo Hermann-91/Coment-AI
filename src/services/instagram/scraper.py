@@ -51,7 +51,7 @@ class InstagramScraper:
             links_posts = links_posts or []
             links_reels = links_reels or []
 
-            # Une as listas e remove duplicadas
+            # Une as locais e remove duplicadas
             all_links = list(set(links_posts + links_reels))
             
             # Filtra e formata para URLs absolutas
@@ -73,7 +73,8 @@ class InstagramScraper:
 
     async def get_post_caption(self, post_url: str) -> str:
         """
-        Acessa um post e extrai o texto da legenda do autor de forma assíncrona com espera ativa.
+        Acessa um post e extrai o texto da legenda do autor de forma assíncrona com espera ativa
+        e varredura inteligente por múltiplos seletores.
         """
         if not self.page:
             return ""
@@ -82,33 +83,36 @@ class InstagramScraper:
             logger.info(f"Extraindo legenda da URL: {post_url}")
             await self.page.goto(post_url, wait_until="load")
             
-            # ESPERA ATIVA: Aguarda até 10 segundos para a legenda (h1) estar visível
-            caption_locator = self.page.locator('h1')
-            try:
-                # Aguarda o elemento h1 ficar visível na página (padrão de legenda do Instagram)
-                await caption_locator.first.wait_for(state="visible", timeout=10000)
-            except Exception:
-                logger.warning(f"⚠️ Timeout ao aguardar h1 na página do post: {post_url}")
-                pass
+            # Seletores prováveis de legenda na ordem de prioridade
+            caption_selectors = [
+                'article h1',                   # Legenda no h1 dentro do post
+                'h1',                           # h1 geral como fallback
+                'span[class*="x1lliihq"]'       # span de texto comum como fallback
+            ]
 
-            # Tenta ler a legenda do h1
-            if await caption_locator.count() > 0:
-                text = await caption_locator.first.text_content()
-                if text and len(text.strip()) > 0:
-                    caption_text = text.strip()
-                    logger.info(f"Legenda capturada via h1 com sucesso: {caption_text[:50]}...")
-                    return caption_text
+            # ESPERA ATIVA: Aguarda até 8 segundos no total para que algum seletor fique visível
+            for selector in caption_selectors:
+                try:
+                    await self.page.locator(selector).first.wait_for(state="visible", timeout=2500)
+                    break  # Se o seletor principal ou um fallback estiver visível, interrompe a espera
+                except Exception:
+                    continue
 
-            # Seletor alternativo (fallback) caso o h1 não tenha texto ou falhe
-            fallback_locator = self.page.locator('span[class*="x1lliihq"]')
-            if await fallback_locator.count() > 0:
-                text = await fallback_locator.first.text_content()
-                if text and len(text.strip()) > 0:
-                    caption_text = text.strip()
-                    logger.info(f"Legenda capturada via seletor alternativo: {caption_text[:50]}...")
-                    return caption_text
+            # Varre os seletores para encontrar o primeiro texto de legenda válido
+            for selector in caption_selectors:
+                locators = self.page.locator(selector)
+                count = await locators.count()
+                
+                for i in range(count):
+                    text = await locators.nth(i).text_content()
+                    if text:
+                        cleaned_text = text.strip()
+                        # Valida se o texto é uma legenda válida (tamanho mínimo e não é o título do site)
+                        if len(cleaned_text) > 5 and cleaned_text.lower() != "instagram":
+                            logger.info(f"Legenda capturada com sucesso via '{selector}': {cleaned_text[:50]}...")
+                            return cleaned_text
 
-            logger.warning("Nenhum seletor contendo legenda de postagem retornou dados.")
+            logger.warning("Nenhum seletor contendo legenda de postagem retornou dados válidos.")
             return ""
 
         except Exception as e:
