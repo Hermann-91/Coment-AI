@@ -24,20 +24,20 @@ class GeminiService:
 
     def analyze_product(self, product_description: str, website_text: str) -> dict:
         """
-        Usa o modelo para ler a descrição e o texto extraído do site do produto,
-        mapeando quem é a persona, quais as dores (regras positivas) e exclusões (regras negativas).
-        Retorna um dicionário JSON estruturado.
+        Usa o modelo para ler a descrição e o site do produto, gerando a Persona,
+        5 palavras-chave positivas, 5 hashtags virais e 5 palavras-chave negativas (exclusões).
         """
         if not self.model:
             logger.error("API do Gemini não configurada.")
-            return {"persona": "Não configurada", "dores": [], "exclusoes": []}
+            return {"persona": "Não configurada", "palavras_chave": [], "hashtags": [], "exclusoes": []}
 
         prompt = f"""
         Você é um especialista em Marketing Digital, SEO e copywriter profissional.
         Analise as informações abaixo sobre um produto digital e defina:
         1. A Persona principal (público-alvo).
-        2. Uma lista de 3 a 5 dores/problemas específicos (Regras Positivas) que essa persona enfrenta no cotidiano e que o produto ajuda a resolver.
-        3. Uma lista de 3 a 5 assuntos ou temas (Regras Negativas de Exclusão) que NÃO são relevantes para o produto e devem ser ignorados (ex: se o produto é uma planilha financeira de motoristas, anúncios de venda de carros, propagandas de concessionárias, promoções de locadoras e autopeças devem ser ignorados).
+        2. Uma lista de exatamente 5 palavras-chave positivas (Regras Positivas de Relevância) que caracterizam o interesse do público em relação ao produto (ex: "lucros", "combustível", "despesas", "corridas", "faturamento").
+        3. Uma lista de exatamente 5 hashtags virais do nicho para busca no Instagram, sem o símbolo # (ex: "motoristaapp", "vidademotorista", "motoristauber").
+        4. Uma lista de exatamente 5 palavras-chave negativas (Regras Negativas de Exclusão) de assuntos ou propagandas comerciais indesejadas que devem ser ignoradas (ex: "venda", "seminovos", "aluguel", "repasses", "autopeças").
 
         Descrição rápida do produto:
         "{product_description}"
@@ -48,14 +48,14 @@ class GeminiService:
         Retorne as informações EXCLUSIVAMENTE em formato JSON estrito, conforme o exemplo de estrutura abaixo (responda APENAS o JSON válido, sem tags markdown ```json ou introduções):
         {{
             "persona": "Breve descrição sobre quem é o cliente ideal do produto.",
-            "dores": [
-                "Dificuldade em calcular o lucro real da corrida",
-                "Problemas para controlar os gastos com combustível"
+            "palavras_chave": [
+                "lucro", "combustivel", "despesas", "corrida", "faturamento"
+            ],
+            "hashtags": [
+                "motoristaapp", "motoristadeaplicativo", "motoristauber", "vidademotorista", "uberbr"
             ],
             "exclusoes": [
-                "Anúncios de venda de veículos ou carros novos/usados",
-                "Promoções de aluguel de carros",
-                "Venda de autopeças ou serviços mecânicos"
+                "venda", "seminovo", "aluguel", "repasse", "autopecas"
             ]
         }}
         """
@@ -80,39 +80,39 @@ class GeminiService:
             logger.error(f"Erro ao realizar análise do produto no Gemini: {e}")
             return {
                 "persona": "Persona definida por descrição rápida",
-                "dores": [product_description] if product_description else ["Problemas de gestão/custos gerais"],
-                "exclusoes": ["Anúncios de venda de veículos", "Promoções comerciais de concessionárias"]
+                "palavras_chave": ["lucro", "combustivel", "despesas", "corrida", "faturamento"],
+                "hashtags": ["motoristaapp", "motoristadeaplicativo", "motoristauber", "vidademotorista", "uberbr"],
+                "exclusoes": ["venda", "seminovo", "aluguel", "repasse", "autopecas"]
             }
 
     def evaluate_post_and_generate_comment(self, post_text: str, product_analysis: dict, product_link: str) -> str | None:
         """
         Analisa a legenda de um post de terceiros no Instagram.
-        Compara de forma amigável e flexível com as dores e exclusões de spam/anúncios comerciais.
+        Aplica veto absoluto (100%) para palavras de exclusão e regra semântica de relevância de 65% para palavras positivas.
         """
         if not self.model:
             logger.error("API do Gemini não configurada.")
             return None
 
-        dores_str = "\n".join([f"- {dor}" for dor in product_analysis.get("dores", [])])
-        exclusoes_str = "\n".join([f"- {exc}" for exc in product_analysis.get("exclusoes", [])])
+        palavras_chave_str = ", ".join(product_analysis.get("palavras_chave", []))
+        exclusoes_str = ", ".join(product_analysis.get("exclusoes", []))
 
         prompt = f"""
         Você é um especialista em marketing de relacionamento, agindo como um colega empático que deseja indicar uma ferramenta útil.
         Você se comunica estritamente em Português do Brasil (PT-BR) de forma amigável, educada e profissional, sem o uso de gírias pesadas, focando em ajuda técnica.
         
-        O seu produto promove ajuda técnica para as seguintes dores ou interesses específicos do nicho (Regras Positivas):
-        {dores_str}
+        As 5 palavras-chave positivas do seu nicho são:
+        [{palavras_chave_str}]
 
-        Regras Negativas de Exclusão (Ignore totalmente e responda PULAR para posts comerciais sobre estes temas):
-        {exclusoes_str}
+        As 5 palavras-chave negativas de exclusão (spam/anúncios comerciais a ignorar) são:
+        [{exclusoes_str}]
 
         Link de divulgação do produto: {product_link}
 
-        Instruções obrigatórias de ação:
-        1. Analise a legenda do post do Instagram fornecido.
-        2. Seja flexível e proativo: O objetivo é engajar com motoristas reais. Se o post for de um motorista mostrando corridas, faturamento, rotina de trabalho ou relatando o dia a dia, você DEVE considerar relevante e gerar o comentário! Tente fazer uma correlação amigável entre o dia a dia dele e a importância de ter uma boa calculadora/gestão de despesas para ajudar a faturar mais.
-        3. Apenas responda PULAR se o post for um anúncio comercial puro de venda/aluguel de carros de concessionárias ou se for de outro nicho totalmente irrelevante para a vida de um motorista de aplicativo.
-        4. Ao gerar o comentário, certifique-se de que ele:
+        Instruções obrigatórias de ação para classificação e escrita:
+        1. REGRA DE VETO ABSOLUTO (REGRAS NEGATIVAS): Analise a legenda do post do Instagram. Se ela contiver QUALQUER uma das 5 palavras-chave negativas de exclusão descritas acima (ou variações delas, como plural/sinônimos de venda, aluguel, repasse, autopeças ou anúncios comerciais de carros), responda EXCLUSIVAMENTE com a palavra: PULAR
+        2. REGRA DE RELEVÂNCIA DE 65% (REGRAS POSITIVAS): Avalie se a legenda do post aborda ou está semanticamente relacionada a pelo menos 65% do contexto das palavras-chave positivas fornecidas. Se a legenda do post de um motorista falar sobre a rotina de trabalho dele, mostrar corridas, compartilhar ganhos, cansaço, lucros ou faturamento, ela bate com a relevância de 65% e você deve considerá-lo RELEVANTE. Caso contrário, responda EXCLUSIVAMENTE com a palavra: PULAR
+        3. Se o post passar nas regras e for RELEVANTE, gere um comentário de engajamento que:
            - Demonstre empatia real e profissional com a dor ou desafio do autor (ex: 'Gerenciar os ganhos e despesas diárias é um desafio constante...').
            - Indique de forma sutil e natural a ferramenta do link {product_link} no meio da frase (ex: '...eu uso este link {product_link} para ajudar a calcular quais corridas compensam mais...').
            - Escreva o comentário INTEIRAMENTE em Português do Brasil (PT-BR).

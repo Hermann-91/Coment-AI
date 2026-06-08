@@ -43,8 +43,10 @@ if "product_mapped" not in st.session_state:
     st.session_state.product_mapped = False
 if "persona" not in st.session_state:
     st.session_state.persona = ""
-if "dores" not in st.session_state:
-    st.session_state.dores = ""
+if "palavras_chave" not in st.session_state:
+    st.session_state.palavras_chave = ""
+if "hashtags" not in st.session_state:
+    st.session_state.hashtags = ""
 if "exclusoes" not in st.session_state:
     st.session_state.exclusoes = ""
 
@@ -92,10 +94,11 @@ with tab1:
                 gemini_service = GeminiService(api_key=gemini_key)
                 analysis = gemini_service.analyze_product(product_description, website_text)
 
-                # Salva os resultados no session_state para edição na tela
+                # Salva os resultados no session_state para edição na tela (convertendo listas para texto)
                 st.session_state.persona = analysis.get("persona", "Motoristas de aplicativo")
-                st.session_state.dores = "\n".join(analysis.get("dores", [product_description]))
-                st.session_state.exclusoes = "\n".join(analysis.get("exclusoes", ["Anúncios de venda de carros", "Promoções comerciais"]))
+                st.session_state.palavras_chave = ", ".join(analysis.get("palavras_chave", []))
+                st.session_state.hashtags = ", ".join(analysis.get("hashtags", []))
+                st.session_state.exclusoes = ", ".join(analysis.get("exclusoes", []))
                 st.session_state.product_mapped = True
                 st.success("Mapeamento gerado com sucesso! Revise as regras abaixo:")
 
@@ -103,16 +106,22 @@ with tab1:
     if st.session_state.product_mapped:
         st.write("---")
         st.write("### 📝 Ajuste e Revisão de Regras da IA (Opcional)")
-        st.info("Você pode ajustar os textos abaixo para deixar a IA mais cirúrgica antes de iniciar o robô!")
+        st.info("A IA mapeou as seguintes palavras-chave de segurança. Você pode editá-las livremente!")
         
         editable_persona = st.text_input("Persona Alvo", value=st.session_state.persona)
-        editable_dores = st.text_area("Regras Positivas (Dores a buscar - uma por linha)", value=st.session_state.dores, height=120)
-        editable_exclusoes = st.text_area("Regras Negativas (O que ignorar/pular - uma por linha)", value=st.session_state.exclusoes, height=120)
+        editable_positivas = st.text_area("5 Palavras-chave Positivas (Afinidade 65% - separadas por vírgula)", value=st.session_state.palavras_chave)
+        editable_negativas = st.text_area("5 Palavras-chave Negativas (Veto Absoluto - separadas por vírgula)", value=st.session_state.exclusoes)
 
         st.write("---")
         # Configurações de Busca e Nicho
         st.write("### 🎯 Nicho e Limites do Robô")
-        niche_tags_input = st.text_input("Hashtags Alvo (separadas por vírgula)", placeholder="motoristasdeaplicativo, uberbr, 99pop")
+        
+        # Pega as hashtags virais sugeridas pela IA como padrão para o campo
+        niche_tags_input = st.text_input(
+            "Hashtags Alvo (separadas por vírgula)", 
+            value=st.session_state.hashtags, 
+            placeholder="motoristasdeaplicativo, uberbr, 99pop"
+        )
         
         col_lim1, col_lim2 = st.columns(2)
         with col_lim1:
@@ -158,11 +167,15 @@ with tab1:
                 st.session_state.logs = []  # Limpa o histórico de logs anteriores
                 update_logs("🤖 Inicializando o Coment-AI...")
 
+                # Converte os textos separados por vírgula em listas limpas
+                list_positivas = [item.strip() for item in editable_positivas.split(",") if item.strip()]
+                list_negativas = [item.strip() for item in editable_negativas.split(",") if item.strip()]
+
                 # Cria a estrutura de análise revisada
                 revised_analysis = {
                     "persona": editable_persona,
-                    "dores": [d.strip() for d in editable_dores.split("\n") if d.strip()],
-                    "exclusoes": [e.strip() for e in editable_exclusoes.split("\n") if e.strip()]
+                    "palavras_chave": list_positivas,
+                    "exclusoes": list_negativas
                 }
 
                 # Cria a instância do bot

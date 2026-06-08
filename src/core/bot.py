@@ -24,7 +24,7 @@ class MarketingBot:
         self,
         instagram_user: str,
         product_link: str,
-        product_analysis: dict,   # Agora recebe a persona, dores e exclusões editados e revisados na interface
+        product_analysis: dict,   # Mapeamento dinâmico contendo persona, palavras_chave e exclusoes
         niche_tags: list[str],
         limit_per_tag: int = 5,
         limit_comments: int = 3,
@@ -48,13 +48,11 @@ class MarketingBot:
             # Roda com o mapeamento dinâmico que o usuário revisou/ajustou no Streamlit
             report("1. Carregando mapeamento de persona e regras da IA fornecidos...")
             report(f" Persona ativa: {product_analysis.get('persona', 'Geral')}")
-            for dor in product_analysis.get("dores", []):
-                report(f" -> Regra Positiva (Dor): {dor}")
-            for exc in product_analysis.get("exclusoes", []):
-                report(f" -> Regra Negativa (Ignorar): {exc}")
+            report(f" -> Palavras-chave Positivas (Afinidade 65%): {', '.join(product_analysis.get('palavras_chave', []))}")
+            report(f" -> Palavras-chave Negativas (Veto Absoluto): {', '.join(product_analysis.get('exclusoes', []))}")
 
-            if not product_analysis.get("dores"):
-                report("❌ Nenhuma regra de dor foi fornecida. Encerrando execução.", is_error=True)
+            if not product_analysis.get("palavras_chave"):
+                report("❌ Nenhuma palavra-chave de dor foi fornecida. Encerrando execução.", is_error=True)
                 return
 
             # 3. Inicializa o Navegador
