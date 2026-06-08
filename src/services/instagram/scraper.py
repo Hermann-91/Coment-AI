@@ -134,8 +134,8 @@ class InstagramScraper:
                         # Limita a leitura a no máximo 4 blocos de texto (legenda + primeiros comentários)
                         if len(collected_blocks) >= 4:
                             break
-                    except Exception:
-                        continue
+                except Exception:
+                    continue
 
             if collected_blocks:
                 full_text = "\n\n".join(collected_blocks)
