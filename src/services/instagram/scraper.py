@@ -84,62 +84,58 @@ class InstagramScraper:
             logger.info(f"Extraindo legenda e comentários da URL: {post_url}")
             await self.page.goto(post_url, wait_until="load")
             
-            # Seletores amplos e globais de legenda e comentários
-            caption_selectors = [
-                'h1',                           # h1 da legenda do autor
-                'span[class*="_ap3a"]',         # Classe comum de texto no post
-                'span[class*="x1lliihq"]'       # Classe genérica de texto no Instagram
-            ]
+            # Seletor unificado para garantir que a leitura siga a ordem cronológica de cima para baixo
+            unified_selector = 'h1, span[class*="_ap3a"], span[class*="x1lliihq"]'
 
             # Termos comuns da interface/menu lateral do Instagram que devem ser descartados
             menu_terms = {
                 "página inicial", "pesquisa", "explorar", "reels", "mensagens", 
                 "notificações", "criar", "perfil", "mais", "instagram", "entrar", "cadastre-se",
                 "home", "search", "explore", "messages", "notifications", "create", "profile",
-                "log in", "sign up", "configurações", "settings"
+                "log in", "sign up", "configurações", "settings", "responder", "ver tradução"
             }
 
-            # ESPERA ATIVA: Aguarda até 8 segundos no total para que algum seletor fique visível
-            for selector in caption_selectors:
-                try:
-                    await self.page.locator(selector).first.wait_for(state="visible", timeout=2000)
-                    break
-                except Exception:
-                    continue
+            # ESPERA ATIVA: Aguarda até 8 segundos no total para que o seletor unificado fique visível
+            try:
+                await self.page.locator(unified_selector).first.wait_for(state="visible", timeout=8000)
+            except Exception:
+                logger.warning("Nenhum seletor contendo texto ficou visível no tempo limite.")
 
             collected_blocks = []
             seen_texts = set()
 
-            # Varre os seletores acumulando blocos de texto únicos (legenda + primeiros comentários)
-            for selector in caption_selectors:
-                locators = self.page.locator(selector)
-                count = await locators.count()
-                
-                for i in range(count):
-                    try:
-                        text = await locators.nth(i).text_content()
-                        if text:
-                            cleaned_text = text.strip()
+            # Varre os elementos na ordem em que aparecem no DOM
+            locators = self.page.locator(unified_selector)
+            count = await locators.count()
+            
+            for i in range(count):
+                try:
+                    text = await locators.nth(i).text_content()
+                    if text:
+                        cleaned_text = text.strip()
+                        
+                        # Ignora se for menu
+                        if cleaned_text.lower() in menu_terms:
+                            continue
+                        
+                        # Filtro de segurança contra nomes de usuários e botões de interface:
+                        # Exige que o texto tenha pelo menos 12 caracteres e contenha no mínimo 3 palavras (espaços)
+                        if len(cleaned_text) <= 12 or len(cleaned_text.split()) < 3:
+                            continue
+                        
+                        # Evita repetição exata
+                        normalized_text = cleaned_text.lower()
+                        if normalized_text in seen_texts:
+                            continue
                             
-                            # Ignora se for menu ou se for muito curto (menor ou igual a 12 caracteres)
-                            if cleaned_text.lower() in menu_terms or len(cleaned_text) <= 12:
-                                continue
-                            
-                            # Evita repetição exata
-                            normalized_text = cleaned_text.lower()
-                            if normalized_text in seen_texts:
-                                continue
-                                
-                            seen_texts.add(normalized_text)
-                            collected_blocks.append(cleaned_text)
-                            
-                            # Limita a leitura a no máximo 4 blocos de texto (ex: legenda + 3 comentários)
-                            if len(collected_blocks) >= 4:
-                                break
+                        seen_texts.add(normalized_text)
+                        collected_blocks.append(cleaned_text)
+                        
+                        # Limita a leitura a no máximo 4 blocos de texto (legenda + primeiros comentários)
+                        if len(collected_blocks) >= 4:
+                            break
                     except Exception:
                         continue
-                if len(collected_blocks) >= 4:
-                    break
 
             if collected_blocks:
                 full_text = "\n\n".join(collected_blocks)
