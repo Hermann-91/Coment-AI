@@ -70,6 +70,7 @@ class InstagramInteractor:
     async def comment(self, post_url: str, comment_text: str) -> bool:
         """
         Navega ao post, clica na caixa de texto e digita imitando digitação humana.
+        Confirma se o envio foi bem-sucedido verificando se a caixa de texto foi limpa.
         """
         if not self.page:
             return False
@@ -102,24 +103,61 @@ class InstagramInteractor:
                 await comment_box.type(caractere)
                 await asyncio.sleep(random.uniform(0.04, 0.18))
 
-            await asyncio.sleep(random.uniform(0.5, 1.2))
+            await asyncio.sleep(random.uniform(0.8, 1.5))
 
-            # Seletor multilíngue para o botão de postar
-            publish_button = self.page.locator(
-                'div[role="button"]:has-text("Postar"), '
-                'div[role="button"]:has-text("Publicar"), '
-                'div[role="button"]:has-text("Post"), '
+            # Tenta múltiplos seletores de clique para postar
+            publish_selectors = [
+                'div[role="button"]:has-text("Postar")',
+                'div[role="button"]:has-text("Publicar")',
+                'span:has-text("Postar")',
+                'span:has-text("Publicar")',
+                'div[role="button"]:has-text("Post")',
                 'div[role="button"]:has-text("Publish")'
-            ).first
+            ]
 
-            # Aguarda o botão estar visível e clica
-            await publish_button.wait_for(state="visible", timeout=5000)
-            await publish_button.click()
+            sent_successfully = False
             
-            logger.info("Comentário enviado! Aguardando estabilização...")
-            await asyncio.sleep(random.uniform(3.0, 5.0))
-            
-            return True
+            # Loop de tentativas de clique e validação de limpeza do campo
+            for attempt in range(3):
+                # Tenta clicar no primeiro seletor disponível
+                for selector in publish_selectors:
+                    try:
+                        btn = self.page.locator(selector).first
+                        if await btn.count() > 0 and await btn.is_visible():
+                            await btn.click()
+                            logger.info(f"Clique efetuado no botão de postagem via seletor: '{selector}'")
+                            await asyncio.sleep(2.0)
+                            break
+                    except Exception:
+                        continue
+                
+                # Valida se o textarea foi limpo (sinal clássico de comentário enviado com sucesso)
+                current_value = await comment_box.input_value()
+                if not current_value or len(current_value.strip()) == 0:
+                    sent_successfully = True
+                    logger.info("Confirmação de envio: A caixa de comentários foi limpa com sucesso!")
+                    break
+                
+                # Fallback: Se o clique no botão falhou, tenta simular o pressionamento da tecla Enter no campo
+                logger.warning(f"Tentativa {attempt + 1} de envio: O texto não foi limpo. Pressionando Enter no campo de texto...")
+                await comment_box.focus()
+                await comment_box.press("Enter")
+                await asyncio.sleep(2.5)
+
+                # Reavalia se limpou
+                current_value = await comment_box.input_value()
+                if not current_value or len(current_value.strip()) == 0:
+                    sent_successfully = True
+                    logger.info("Confirmação de envio: A caixa de comentários foi limpa após pressionar Enter!")
+                    break
+
+            if sent_successfully:
+                logger.info("Comentário publicado e confirmado com sucesso no Instagram!")
+                await asyncio.sleep(random.uniform(2.0, 4.0))
+                return True
+            else:
+                logger.error("Falha ao confirmar o envio do comentário (o texto permaneceu na caixa após cliques e Enter).")
+                return False
 
         except Exception as e:
             logger.error(f"Erro ao enviar comentário no post {post_url}: {e}")
