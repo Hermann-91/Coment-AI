@@ -109,6 +109,9 @@ class MarketingBot:
                         report("⚠️ Não foi possível ler a legenda do post. Pulando...")
                         continue
 
+                    # Imprime um pedaço da legenda na tela para depuração e transparência do usuário
+                    report(f"📝 Legenda lida: \"{caption[:100]}...\"")
+
                     # IA - Avaliação e geração
                     report("Analisando legenda do post com o Gemini...")
                     comment = self.gemini.evaluate_post_and_generate_comment(
