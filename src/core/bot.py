@@ -24,7 +24,7 @@ class MarketingBot:
         self,
         instagram_user: str,
         product_link: str,
-        product_description: str,
+        product_analysis: dict,   # Agora recebe a persona, dores e exclusões editados e revisados na interface
         niche_tags: list[str],
         limit_per_tag: int = 5,
         limit_comments: int = 3,
@@ -45,26 +45,20 @@ class MarketingBot:
         commented_posts = set()  # Controle local para evitar comentar no mesmo post nesta sessão
 
         try:
-            # 1. Scrape do site do produto
-            report("1. Analisando site e proposta de valor do produto...")
-            website_text = ""
-            if product_link:
-                website_text = self.scraper.scrape_website(product_link)
-
-            # 2. IA - Persona e dores
-            report("2. Mapeando persona e dores do produto com a IA Gemini...")
-            product_analysis = self.gemini.analyze_product(product_description, website_text)
-            
-            report(f" Persona identificada: {product_analysis.get('persona', 'Geral')}")
+            # Roda com o mapeamento dinâmico que o usuário revisou/ajustou no Streamlit
+            report("1. Carregando mapeamento de persona e regras da IA fornecidos...")
+            report(f" Persona ativa: {product_analysis.get('persona', 'Geral')}")
             for dor in product_analysis.get("dores", []):
-                report(f" -> Dor Mapeada: {dor}")
+                report(f" -> Regra Positiva (Dor): {dor}")
+            for exc in product_analysis.get("exclusoes", []):
+                report(f" -> Regra Negativa (Ignorar): {exc}")
 
             if not product_analysis.get("dores"):
-                report("❌ Nenhuma dor do produto foi mapeada. Encerrando execução.", is_error=True)
+                report("❌ Nenhuma regra de dor foi fornecida. Encerrando execução.", is_error=True)
                 return
 
             # 3. Inicializa o Navegador
-            report("3. Inicializando navegador local...")
+            report("2. Inicializando navegador local...")
             page = await self.browser_manager.start(headless=False)
 
             # Instancia os submódulos especialistas injetando a página ativa
@@ -72,7 +66,7 @@ class MarketingBot:
             ig_interactor = InstagramInteractor(page=page)
 
             # 4. Login no Instagram (Apenas aguarda o login manual do usuário)
-            report("4. Verificando/Aguardando login no Instagram...")
+            report("3. Verificando/Aguardando login no Instagram...")
             logged = await ig_interactor.login(instagram_user)
             if not logged:
                 report("❌ Falha no login do Instagram. Encerrando execução.", is_error=True)
@@ -80,7 +74,7 @@ class MarketingBot:
                 return
 
             # 5. Varredura de Hashtags
-            report("5. Iniciando varredura das hashtags de nicho...")
+            report("4. Iniciando varredura das hashtags de nicho...")
             for tag in niche_tags:
                 if not self.is_running:
                     report("⏹️ Execução interrompida pelo usuário.")

@@ -25,18 +25,19 @@ class GeminiService:
     def analyze_product(self, product_description: str, website_text: str) -> dict:
         """
         Usa o modelo para ler a descrição e o texto extraído do site do produto,
-        mapeando quem é a persona e quais são as dores que o produto resolve.
+        mapeando quem é a persona, quais as dores (regras positivas) e exclusões (regras negativas).
         Retorna um dicionário JSON estruturado.
         """
         if not self.model:
             logger.error("API do Gemini não configurada.")
-            return {"persona": "Não configurada", "dores": []}
+            return {"persona": "Não configurada", "dores": [], "exclusoes": []}
 
         prompt = f"""
-        Você é um especialista em Marketing Digital e copywriter profissional.
+        Você é um especialista em Marketing Digital, SEO e copywriter profissional.
         Analise as informações abaixo sobre um produto digital e defina:
         1. A Persona principal (público-alvo).
-        2. Uma lista de 3 a 5 dores/problemas específicos que essa persona enfrenta no cotidiano e que o produto ajuda a resolver.
+        2. Uma lista de 3 a 5 dores/problemas específicos (Regras Positivas) que essa persona enfrenta no cotidiano e que o produto ajuda a resolver.
+        3. Uma lista de 3 a 5 assuntos ou temas (Regras Negativas de Exclusão) que NÃO são relevantes para o produto e devem ser ignorados (ex: se o produto é uma planilha financeira de motoristas, anúncios de venda de carros, propagandas de concessionárias, promoções de locadoras e autopeças devem ser ignorados).
 
         Descrição rápida do produto:
         "{product_description}"
@@ -48,9 +49,13 @@ class GeminiService:
         {{
             "persona": "Breve descrição sobre quem é o cliente ideal do produto.",
             "dores": [
-                "Exemplo de dor 1",
-                "Exemplo de dor 2",
-                "Exemplo de dor 3"
+                "Dificuldade em calcular o lucro real da corrida",
+                "Problemas para controlar os gastos com combustível"
+            ],
+            "exclusoes": [
+                "Anúncios de venda de veículos ou carros novos/usados",
+                "Promoções de aluguel de carros",
+                "Venda de autopeças ou serviços mecânicos"
             ]
         }}
         """
@@ -75,34 +80,40 @@ class GeminiService:
             logger.error(f"Erro ao realizar análise do produto no Gemini: {e}")
             return {
                 "persona": "Persona definida por descrição rápida",
-                "dores": [product_description] if product_description else ["Problemas de gestão/custos gerais"]
+                "dores": [product_description] if product_description else ["Problemas de gestão/custos gerais"],
+                "exclusoes": ["Anúncios de venda de veículos", "Promoções comerciais de concessionárias"]
             }
 
     def evaluate_post_and_generate_comment(self, post_text: str, product_analysis: dict, product_link: str) -> str | None:
         """
         Analisa a legenda de um post de terceiros no Instagram.
-        Se identificar uma dor relacionada às dores mapeadas do produto, gera um comentário em Português do Brasil.
-        Se não identificar dor relevante, retorna None para instruir o robô a ignorar o post.
+        Compara com as dores (regras positivas) e com as exclusões (regras negativas) fornecidas.
+        Se bater com alguma exclusão ou não demonstrar dores, retorna None (Pula).
         """
         if not self.model:
             logger.error("API do Gemini não configurada.")
             return None
 
         dores_str = "\n".join([f"- {dor}" for dor in product_analysis.get("dores", [])])
+        exclusoes_str = "\n".join([f"- {exc}" for exc in product_analysis.get("exclusoes", [])])
 
         prompt = f"""
-        Você é um especialista em marketing de relacionamento, agindo como um motorista colega empático que deseja indicar uma ferramenta útil.
+        Você é um especialista em marketing de relacionamento, agindo como um colega empático que deseja indicar uma ferramenta útil.
         Você se comunica estritamente em Português do Brasil (PT-BR) de forma amigável, educada e profissional, sem o uso de gírias pesadas, focando em ajuda técnica.
         
-        O seu produto promove ajuda técnica para as seguintes dores específicas do nicho:
+        O seu produto promove ajuda técnica para as seguintes dores específicas (Regras Positivas):
         {dores_str}
+
+        Regras Negativas de Exclusão (Ignore totalmente e responda PULAR para posts sobre estes temas):
+        {exclusoes_str}
 
         Link de divulgação do produto: {product_link}
 
         Instruções obrigatórias de ação:
         1. Analise a legenda do post do Instagram fornecido.
-        2. Se o post NÃO abordar ou não estiver relacionado a nenhuma das dores descritas acima (como dificuldades de lucro, controle de custos, despesas de combustível, taxas de aplicativos ou gestão financeira de corridas), responda EXCLUSIVAMENTE com a palavra: PULAR
-        3. Se o post estiver relacionado a uma dessas dores, gere um comentário de engajamento no Instagram que:
+        2. Se o post estiver relacionado a qualquer uma das Regras Negativas de Exclusão descritas acima (como anúncios comerciais de venda ou aluguel de carros, promoções de oficinas, ou propagandas comerciais), responda EXCLUSIVAMENTE com a palavra: PULAR
+        3. Se o post NÃO abordar ou não estiver relacionado a nenhuma das dores positivas descritas acima, responda EXCLUSIVAMENTE com a palavra: PULAR
+        4. Se o post estiver relacionado a uma dessas dores positivas, gere um comentário de engajamento no Instagram que:
            - Demonstre empatia real e profissional com a dor ou desafio do autor (ex: 'É realmente um desafio gerenciar os custos diários...').
            - Indique de forma sutil e natural a ferramenta do link {product_link} no meio da frase (ex: '...eu uso este link {product_link} para ajudar a calcular quais corridas compensam mais...').
            - Escreva o comentário INTEIRAMENTE em Português do Brasil (PT-BR), sob qualquer circunstância, mesmo se o post original estiver em outra língua.
@@ -120,16 +131,12 @@ class GeminiService:
             answer = response.text.strip()
 
             # Pós-processamento robusto de segurança:
-            # Se a resposta contiver a palavra 'PULAR' em qualquer lugar (independente de explicações ou idioma), pulamos o post
             if "PULAR" in answer.upper():
-                logger.info("Post considerado incompatível ou sem dor relevante (sinalizado PULAR). Pulando.")
+                logger.info("Post considerado incompatível, comercial ou sem dor relevante. Pulando.")
                 return None
 
-            # Limpa possíveis blocos extras, tópicos markdown ou raciocínios que a IA possa retornar
             lines = [line.strip() for line in answer.split("\n") if line.strip()]
             valid_comment = ""
-            
-            # Busca a linha que de fato seja o comentário final, descartando metadados de explicações
             for line in lines:
                 if not line.startswith("*") and not line.startswith("-") and not line.startswith("[") and ":" not in line:
                     if len(line) > 10:
@@ -139,7 +146,6 @@ class GeminiService:
             if not valid_comment and lines:
                 valid_comment = lines[-1]
 
-            # Remove aspas se a IA envelopou o comentário
             if valid_comment.startswith('"') and valid_comment.endswith('"'):
                 valid_comment = valid_comment[1:-1]
             if valid_comment.startswith("'") and valid_comment.endswith("'"):
@@ -147,13 +153,10 @@ class GeminiService:
 
             valid_comment = valid_comment.strip()
 
-            # Se a limpeza falhou e a resposta ainda contiver metadados ou termos de instrução,
-            # ou se for a palavra PULAR escondida no texto, cancelamos o comentário por segurança
             if "pular" in valid_comment.lower() or "role:" in valid_comment.lower() or "input:" in valid_comment.lower():
                 logger.warning("Falso comentário detectado durante a limpeza. Ignorando post por segurança.")
                 return None
 
-            # Corta se exceder o tamanho máximo de segurança
             if len(valid_comment) > 180:
                 valid_comment = valid_comment[:157] + "..."
 
